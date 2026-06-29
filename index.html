@@ -156,7 +156,7 @@
     width: max(100cqw, calc(100cqh * 16 / 9)) !important;
     height: max(100cqh, calc(100cqw * 9 / 16)) !important;
     border: 0 !important;
-    pointer-events: none; /* 타일 클릭이 영상 위에서도 동작하도록 */
+    pointer-events: auto; /* 영상 클릭을 유튜브로 전달 → 광고 건너뛰기·일시정지 가능 */
   }
 
   /* ---- 타일별 컨트롤 바 (영상 있을 때만) ---- */
@@ -166,7 +166,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    padding: 8px;
+    padding: 8px 52px 8px 8px; /* 오른쪽은 커진 .tile-fab 자리만큼 비움 */
     background: linear-gradient(to bottom, rgba(0,0,0,.62), rgba(0,0,0,0));
     z-index: 3;
     opacity: 0;
@@ -174,13 +174,36 @@
     transition: opacity .15s, transform .15s;
     pointer-events: none; /* 숨김 상태에선 클릭 안 받음 */
   }
-  /* PC: 호버 시 / 모바일: 탭으로 controls-open 시 표시 */
-  .tile.has-video:hover .tile-controls,
+  /* 컨트롤 바는 오른쪽 위 버튼(.tile-fab)을 눌러 열었을 때만 표시 */
   .tile.controls-open .tile-controls {
     opacity: 1;
     transform: none;
     pointer-events: auto;
   }
+
+  /* 영상 위 오른쪽 위에 항상 떠 있는 '내 컨트롤 열기' 버튼
+     (영상 영역은 유튜브가 받고, 우리 컨트롤은 이 버튼으로 연다) */
+  .tile-fab {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: clamp(34px, 14cqmin, 44px);
+    height: clamp(34px, 14cqmin, 44px);
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 6;
+    transition: background .15s;
+  }
+  .tile-fab svg { width: 60%; height: 60%; }
+  .tile.has-video .tile-fab { display: flex; }
+  .tile-fab:hover { background: rgba(0,0,0,.72); }
+  .tile.controls-open .tile-fab { background: var(--accent); } /* 열린 상태 표시 */
+  .tile[data-role="participant"].has-video { cursor: default; } /* 영상 있으면 클릭=유튜브 */
   .tc-btn {
     flex: 0 0 auto;
     width: 30px; height: 30px;
@@ -221,8 +244,7 @@
     transition: opacity .15s, transform .15s;
     pointer-events: none;
   }
-  /* 컨트롤과 동일하게 호버(PC)/탭(모바일) 시 표시 */
-  .tile.has-video:hover .tile-seek,
+  /* 컨트롤 열렸을 때만 표시 */
   .tile.controls-open .tile-seek {
     opacity: 1;
     transform: none;
@@ -254,7 +276,7 @@
     .cam-note { font-size: 10px; }
   }
   @container (max-width: 240px) {
-    .tile-controls { gap: 4px; padding: 6px; }  /* 컨트롤 바가 타일 폭을 안 넘치게 */
+    .tile-controls { gap: 4px; padding: 6px 38px 6px 6px; }  /* 컨트롤 바가 타일 폭을 안 넘치게 (오른쪽은 버튼 자리) */
     .tc-btn { width: 26px; height: 26px; }
     .tc-vol { min-width: 24px; }
     .tile-seek { gap: 5px; padding: 8px 8px 7px; }
@@ -305,7 +327,6 @@
     transition: opacity .15s;
   }
   /* 컨트롤/탐색 바가 떠 있는 동안엔 이름표를 숨겨 하단 겹침 방지 */
-  .tile.has-video:hover .namebar,
   .tile.controls-open .namebar { opacity: 0; }
   .namebar .name {
     font-size: clamp(11px, 3.8cqmin, 15px);
@@ -563,6 +584,7 @@ const ICON = {
   volOff:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>`,
   replace: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>`,
   remove:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`,
+  sliders: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg>`,
 };
 
 /* =========================================================================
@@ -793,6 +815,14 @@ function setTileVideo(idx, videoId) {
     <span class="tc-time tc-dur">0:00</span>`;
   tile.insertBefore(seek, tile.querySelector(".namebar"));
 
+  // '내 컨트롤 열기/닫기' 버튼 (영상은 유튜브가 직접 받으므로, 우리 컨트롤은 이 버튼으로)
+  const fab = document.createElement("button");
+  fab.className = "tile-fab";
+  fab.title = "내 컨트롤 열기/닫기";
+  fab.setAttribute("aria-label", "내 컨트롤 열기/닫기");
+  fab.innerHTML = ICON.sliders;
+  tile.insertBefore(fab, tile.querySelector(".namebar"));
+
   tile.classList.add("has-video");
 
   // API가 준비되면 이 타일 전용 플레이어 생성
@@ -877,6 +907,7 @@ function removeTileVideo(idx) {
   tile.querySelector(".tile-video")?.remove();
   tile.querySelector(".tile-controls")?.remove();
   tile.querySelector(".tile-seek")?.remove();
+  tile.querySelector(".tile-fab")?.remove();
   tile.classList.remove("has-video", "controls-open");
 }
 
@@ -976,9 +1007,16 @@ function leaveStudy() {
 function bindEvents() {
   const grid = document.getElementById("grid");
 
-  // 그리드 클릭: ① 컨트롤 버튼 ② 컨트롤 영역(슬라이더 등) ③ 빈 타일/영상 타일
+  // 그리드 클릭: ① FAB(내 컨트롤 토글) ② 컨트롤 버튼 ③ 컨트롤 영역 ④ 빈 타일
   grid.addEventListener("click", (e) => {
-    // ① 컨트롤 버튼
+    // ① '내 컨트롤 열기/닫기' 버튼
+    const fab = e.target.closest(".tile-fab");
+    if (fab) {
+      e.stopPropagation();
+      fab.closest(".tile").classList.toggle("controls-open");
+      return;
+    }
+    // ② 컨트롤 버튼
     const ctrlBtn = e.target.closest(".tc-btn");
     if (ctrlBtn) {
       e.stopPropagation();
@@ -986,18 +1024,15 @@ function bindEvents() {
       handleTileControl(idx, ctrlBtn.dataset.act);
       return;
     }
-    // ② 컨트롤 바·탐색 바 안(슬라이더 등) 클릭은 타일 토글 막기
+    // ③ 컨트롤 바·탐색 바 안(슬라이더 등) 클릭은 타일 토글 막기
     if (e.target.closest(".tile-controls, .tile-seek")) return;
 
-    // ③ 참가자 타일 본체 클릭
+    // ④ 빈 참가자 타일 본체 클릭 → 링크 입력 모달
+    //    (영상이 있는 타일의 화면 클릭은 유튜브가 받으므로 여기로 안 옴)
     const tile = e.target.closest('.tile[data-role="participant"]');
     if (!tile) return;
     const idx = Number(tile.dataset.idx);
-    if (tilePlayers.has(idx)) {
-      tile.classList.toggle("controls-open"); // 영상 있으면: 모바일 탭으로 컨트롤 열기/닫기
-    } else {
-      openVideoModal(idx);                     // 비었으면: 링크 입력 모달
-    }
+    if (!tilePlayers.has(idx)) openVideoModal(idx);
   });
 
   // 슬라이더 드래그 중 (input)
