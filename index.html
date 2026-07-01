@@ -267,6 +267,29 @@
   }
 
   /* =========================================================
+     집중 모드 (1×2): 참가자1 + 나만 나란히 크게
+     ========================================================= */
+  .grid.layout-focus {
+    /* 1행 2열 — 세로 여유 공간 전부 쓸 수 있게 tile-w 재계산 */
+    --tile-w: min(
+      (100cqw - var(--gap)) / 2,
+      100cqh * 16 / 9
+    );
+    grid-template-columns: repeat(2, var(--tile-w));
+    grid-template-rows: calc(var(--tile-w) * 9 / 16);
+  }
+  /* 참가자2·3은 숨김 (DOM 순서: idx 0→참가자1, 1→참가자2, 2→참가자3, 3→나) */
+  .grid.layout-focus .tile[data-idx="1"],
+  .grid.layout-focus .tile[data-idx="2"] { display: none; }
+
+  /* 레이아웃 토글 버튼 — 현재 모드를 강조 */
+  .ctrl.layout-active {
+    background: rgba(91,141,239,.22);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* =========================================================
      반응형: 타일이 작아질 때(모바일) 겹침/넘침 방지
      (.tile 이 컨테이너이므로 타일 크기로 컨테이너 쿼리)
      ========================================================= */
@@ -520,6 +543,9 @@
         </svg>
       </button>
 
+      <!-- 레이아웃 토글: 2×2 ↔ 1×2 -->
+      <button class="ctrl" id="layoutBtn" title="집중 모드 (1×2)" aria-label="레이아웃 전환"></button>
+
       <!-- 채팅 (장식) -->
       <button class="ctrl decoration" title="채팅 (장식)" aria-label="채팅">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
@@ -585,6 +611,9 @@ const ICON = {
   replace: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>`,
   remove:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`,
   sliders: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9" cy="8" r="2.4" fill="currentColor"/><circle cx="15" cy="16" r="2.4" fill="currentColor"/></svg>`,
+  /* 집중 모드: 두 칸 나란히 / 전체 모드: 네 칸 */
+  focus2: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="9" height="16" rx="1.5"/><rect x="13" y="4" width="9" height="16" rx="1.5"/></svg>`,
+  grid4:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>`,
 };
 
 /* =========================================================================
@@ -1002,6 +1031,28 @@ function leaveStudy() {
 }
 
 /* =========================================================================
+   레이아웃 토글 (2×2 ↔ 1×2 집중 모드)
+   ========================================================================= */
+let isFocusMode = false;
+
+function setLayout(focus) {
+  isFocusMode = focus;
+  const grid = document.getElementById("grid");
+  const btn  = document.getElementById("layoutBtn");
+  if (focus) {
+    grid.classList.add("layout-focus");
+    btn.innerHTML = ICON.grid4;
+    btn.title = "전체 모드 (2×2)";
+    btn.classList.add("layout-active");
+  } else {
+    grid.classList.remove("layout-focus");
+    btn.innerHTML = ICON.focus2;
+    btn.title = "집중 모드 (1×2)";
+    btn.classList.remove("layout-active");
+  }
+}
+
+/* =========================================================================
    이벤트 바인딩
    ========================================================================= */
 function bindEvents() {
@@ -1086,6 +1137,12 @@ function bindEvents() {
     e.currentTarget.blur();
     toggleCamera();
   });
+  // 레이아웃 토글 (2×2 ↔ 1×2)
+  document.getElementById("layoutBtn").addEventListener("click", (e) => {
+    e.currentTarget.blur();
+    setLayout(!isFocusMode);
+  });
+
   // 나가기 + 다시 입장
   document.getElementById("leaveBtn").addEventListener("click", leaveStudy);
   document.getElementById("rejoinBtn").addEventListener("click", () => location.reload());
@@ -1102,6 +1159,7 @@ document.addEventListener("DOMContentLoaded", () => {
   YT_API.loadApi(); // 유튜브 API 미리 로드
   buildGrid();
   bindEvents();
+  setLayout(false);   // 초기 아이콘: 집중 모드로 전환 버튼
   startWebcam();      // 진입 시 카메라 요청
   startSeekUpdater(); // 탐색 바 0.5초마다 갱신
 });
